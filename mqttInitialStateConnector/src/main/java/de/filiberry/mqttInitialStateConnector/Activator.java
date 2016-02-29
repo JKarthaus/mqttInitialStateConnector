@@ -74,7 +74,7 @@ public class Activator implements BundleActivator, ManagedService, MqttCallback 
 	@Override
 	public void updated(Dictionary properties) throws ConfigurationException {
 		if (properties == null) {
-			log.info("config is null");
+			log.info("config is null - Please give me a config File");
 			return;
 		}
 		try {
