@@ -44,6 +44,9 @@ public class Activator implements BundleActivator, ManagedService, MqttCallback 
 	private API initialStateAccount;
 	private WeatherDataParser weatherDataParser;
 	private MqttClient client = null;
+	private String host;
+	private String topic;
+	private String apiKey;
 
 	@Override
 	public void start(BundleContext context) {
@@ -77,32 +80,59 @@ public class Activator implements BundleActivator, ManagedService, MqttCallback 
 			log.info("config is null - Please give me a config File");
 			return;
 		}
+		log.info("Mqtt and Initialstate Config was set.");
+		this.host = (String) properties.get("mqttHost");
+		this.topic = (String) properties.get("mqttTopic");
+		this.apiKey = (String) properties.get("apiKey");
+		connectToBroker();
+	}
+
+	/**
+	 * 
+	 */
+	private boolean connectToBroker() {
 		try {
-			log.info("Try to connect to: " + properties.get("mqttHost") + " Topic: " + properties.get("mqttTopic"));
+			log.info("Try to connect to: " + host + " Topic: " + topic);
 			if (client == null) {
-				client = new MqttClient("" + properties.get("mqttHost"), "mqttInitialStateConnector");
+				client = new MqttClient(host, "mqttInitialStateConnector");
 			}
 			if (!client.isConnected()) {
 				client.connect();
 			}
-			client.subscribe("" + properties.get("mqttTopic"));
+			client.subscribe(topic);
 			client.setCallback(this);
 			log.info("connected !");
 			// --
 			if (initialStateAccount == null) {
-				initialStateAccount = new API("" + properties.get("apiKey"));
+				initialStateAccount = new API(apiKey);
 				log.info("Initial State Account is connected");
 			}
 
 		} catch (MqttException e) {
 			client = null;
 			log.info(e.getMessage());
+			return false;
 		}
+		return true;
+
 	}
 
 	@Override
 	public void connectionLost(Throwable arg0) {
-		log.warning("connection is LOST");
+		log.warning("connection to Broker is LOST");
+		initialStateAccount.terminate();
+		initialStateAccount = null;
+		boolean isConnected = false;
+		while (!isConnected) {
+			log.info("Wait a Minute before reconnect...");
+			try {
+				Thread.sleep(60000);
+			} catch (InterruptedException e1) {
+				log.warning("Wait Thread was interrupted");
+				e1.printStackTrace();
+			}
+			isConnected = connectToBroker();
+		}
 	}
 
 	@Override
